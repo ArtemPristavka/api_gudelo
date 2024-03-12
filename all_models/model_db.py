@@ -7,6 +7,7 @@ from typing import List
 
 __all__ = ["Base", "engine", "Owner", "Employee", "Company"]
 
+
 engine = create_engine("sqlite+pysqlite:///data_base_biznes.db")
 
 

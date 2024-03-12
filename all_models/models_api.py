@@ -1,17 +1,18 @@
 from pydantic import BaseModel, Field, field_validator
-from .model_db import Owner, engine
+from .model_db import Owner, engine, Company
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 
 
-__all__ = ["NewOwnerBase", "NewOwnerCreate", "NewOwner"]
+__all__ = ["NewOwnerBase", "NewOwnerCreate", "NewOwner", "CompanyBase",
+           "CompanyCreate", "CompanyAnswer"]
 
 
-############################################################################
+################################# New Owner #########################################
 
 
 class NewOwnerBase(BaseModel):
-    "Базовая модель для добавления новго владельца"
+    "Базовая модель нового владельца"
 
     name: str = Field(min_length=7, 
                       max_length=50,
@@ -44,8 +45,7 @@ class NewOwnerCreate(NewOwnerBase):
         if answer_from_db is not None:
             raise ValueError("Такой владелец уже существует")
         
-        else:
-            return value
+        return value
 
 
 class NewOwner(NewOwnerBase):
@@ -57,8 +57,42 @@ class NewOwner(NewOwnerBase):
         orm_mode = True
 
 
-############################################################################
+################################# Comapny ###########################################
 
+
+class CompanyBase(BaseModel):
+    "Базовая модель компании"
+
+    name: str = Field(min_length=7,
+                      max_length=50)
+    
+
+class CompanyCreate(CompanyBase):
+    "Модель для добавления новой компании от владельца"
+    
+    @field_validator("name")
+    @classmethod
+    def check_name_in_db(cls, value: str) -> str:
+
+        stmt_select = select(Company).where(Company.name == value)
+
+        with Session(engine) as session:
+            answer_from_db = session.scalar(stmt_select)
+
+        if answer_from_db is not None:
+            raise ValueError("Такая компания уже существует")
+        
+        return value
+    
+
+class CompanyAnswer(CompanyBase):
+    "Модель ответа API после прочтения ответа из бд"
+
+    id: int
+    owner_id: int
+
+    class Config:
+        orm_mode = True
 
 
 if __name__ == "__main__":
