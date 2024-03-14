@@ -2,13 +2,15 @@ from pydantic import BaseModel, Field, field_validator
 from .model_db import Owner, engine, Company
 from sqlalchemy.orm import Session
 from sqlalchemy import select
+from fastapi import HTTPException
 
 
-__all__ = ["NewOwnerBase", "NewOwnerCreate", "NewOwner", "CompanyBase",
-           "CompanyCreate", "CompanyAnswer"]
+__all__ = ["NewOwnerBase", "NewOwnerCreate", "CompanyBase",
+           "CompanyCreate", "CompanyAnswer", "CompanyDelete",
+           "EmployeeBase"]
 
 
-################################# New Owner #########################################
+################################# New Owner #################################
 
 
 class NewOwnerBase(BaseModel):
@@ -43,21 +45,13 @@ class NewOwnerCreate(NewOwnerBase):
             answer_from_db = session.scalar(stmt)
 
         if answer_from_db is not None:
-            raise ValueError("Такой владелец уже существует")
+            raise HTTPException(status_code=401,
+                                detail="Такой владелец уже существует")
         
         return value
 
 
-class NewOwner(NewOwnerBase):
-    "Модель ответа АPI после прочтения ответа из базы данных"
-
-    id: int
-
-    class Config:
-        orm_mode = True
-
-
-################################# Comapny ###########################################
+################################# Comapny #################################
 
 
 class CompanyBase(BaseModel):
@@ -80,7 +74,27 @@ class CompanyCreate(CompanyBase):
             answer_from_db = session.scalar(stmt_select)
 
         if answer_from_db is not None:
-            raise ValueError("Такая компания уже существует")
+            raise HTTPException(status_code=401,
+                                detail="Такая компания уже существует")
+        
+        return value
+
+
+class CompanyDelete(CompanyBase):
+    "Модель для удаления компании"
+
+    @field_validator("name")
+    @classmethod
+    def check_name_in_db(cls, value: str) -> str:
+
+        stmt_select = select(Company).where(Company.name == value)
+
+        with Session(engine) as session:
+            answer_from_db = session.scalar(stmt_select)
+
+        if answer_from_db is None:
+            raise HTTPException(status_code=404,
+                                detail="Такой компании не существует")
         
         return value
     
@@ -93,6 +107,15 @@ class CompanyAnswer(CompanyBase):
 
     class Config:
         orm_mode = True
+
+
+################################# Employee #################################
+
+
+class EmployeeBase(BaseModel):
+    "Базовый модель сотрудника"
+    name: str
+
 
 
 if __name__ == "__main__":

@@ -69,7 +69,7 @@ class Employee(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str]
-    password: Mapped[str]
+    # password: Mapped[str]  для будущей реализации
     company_id: Mapped[int] = mapped_column(ForeignKey("Companys.id",
                                                        onupdate="CASCADE",
                                                         ondelete="CASCADE" ))
@@ -81,9 +81,8 @@ class Employee(Base):
     def __repr__(self) -> str:
         answer = f"id: {self.id} " \
                 f"name: {self.name} " \
-                f"password: {self.password} " \
                 f"company_id: {self.company_id}"
+                # f"password: {self.password} " \
         
         return answer
-
 
