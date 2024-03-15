@@ -1,15 +1,17 @@
 from sqlalchemy.orm import Session
-from sqlalchemy import insert, select, delete, func
+from sqlalchemy import insert, select, func
 from all_models import (
     engine, Base, Owner, Employee, Company, NewOwnerCreate, CompanyCreate,
-    CompanyDelete, EmployeeBase
+    CompanyDelete, EmployeeBase, EmployeeMany
     )
 from fastapi import HTTPException
 from hash_fun import convert_text_into_hash
+from typing import Optional
 
 __all__ = ["create_db", "clear_db", "insert_owner_in_db", "check_owner_in_db",
            "insert_company_in_db", "get_company_by_owner", "delete_company_from_db",
-           "have_count_company_owner", "insert_employee_in_db"]
+           "have_count_company_owner", "insert_employee_in_db",
+           "insert_many_employee_in_db", "delete_employee_from_db"]
 
 
 def have_count_company_owner(data_owner: Owner, data_company: CompanyCreate) -> None:
@@ -80,12 +82,12 @@ def check_owner_in_db(data_owner: str) -> Owner:
 
     # Проверка на наличие владельца в бд
     if owner_from_db is None:
-        raise HTTPException(status_code=404,
+        raise HTTPException(status_code=401,
                             detail="Такого владельца нет")
     
     # Проверяем введенный пароль
     if owner_from_db.password != password_owner:
-        raise HTTPException(status_code=400,
+        raise HTTPException(status_code=403,
                             detail="Неверный пароль")
     
     return owner_from_db
@@ -150,7 +152,16 @@ def delete_company_from_db(data_company: CompanyDelete, data_owner: Owner) -> No
         session.commit()
 
 
-def insert_employee_in_db(data_owner: Owner, data_employee: EmployeeBase):
+def insert_employee_in_db(data_owner: Owner, data_employee: EmployeeBase) -> None:
+    """
+    Функция добавляет сотрудника в базу данных
+
+    data_owner: Owner
+        Класс содержащий данные о владельце
+
+    data_employee: EmployeeBase
+        Класс содержащий данные о сотруднике
+    """
 
     # Ищем id компании владельца
     stmt_select = select(Company.id).where(Company.owner_id == data_owner.id)
@@ -161,7 +172,63 @@ def insert_employee_in_db(data_owner: Owner, data_employee: EmployeeBase):
         session.commit()
             
 
+def insert_many_employee_in_db(data_owner: Owner, data_employees: EmployeeMany) -> None:
+    """
+    Функция выполняет множественную вставку сотрудников в бд
+
+    data_owner: Owner
+        Класс содержащий данные о владельце
+
+    data_employees: EmployeeMany
+        Класс содержащий данные о сотрудниках
+    """
+
+    # Ищем id компании владельца
+    stmt_select = select(Company.id).where(Company.owner_id == data_owner.id)
+
+    with Session(engine) as session:
+        company_id: Optional[int] = session.scalar(stmt_select) 
+
+    # Проверяем что компании существует 
+    if company_id is None:
+        raise HTTPException(status_code=404,
+                            detail="У вас нет компании, куда можно добавить сотрудника")
+        
+    list_employees = [Employee(name=i_elem.name, company_id=company_id) 
+                      for i_elem in data_employees.array]
+    
+    with Session(engine) as session:
+        session.add_all(list_employees)
+        session.commit()
+
+
+def delete_employee_from_db(data_owner: Owner, data_employee: EmployeeBase) -> None:
+    """
+    Функция проверяет что работник относиться к компании владель и удаляет его
+
+    data_owner: Owner
+        Класс содержащий данные о владельце
+
+    data_employees: EmployeeMany
+        Класс содержащий данные о сотрудниках
+    """
+
+    stmt_select = select(Employee) \
+                    .where(Company.owner_id.has(Company.owner_id == data_owner.id)) \
+                    .where(Employee.name == data_employee.name)
+    
+    with Session(engine) as session:
+        emp = session.scalar(stmt_select)
+
+    if emp is None:
+        raise HTTPException(status_code=404,
+                            detail="У вас нет такого сотрудника")
+    
+    with Session(engine) as session:
+        session.delete(emp)
+        session.commit()
+    
+
 
 if __name__ == "__main__":
     pass
-

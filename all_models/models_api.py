@@ -3,11 +3,11 @@ from .model_db import Owner, engine, Company
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 from fastapi import HTTPException
-
+from typing import List
 
 __all__ = ["NewOwnerBase", "NewOwnerCreate", "CompanyBase",
            "CompanyCreate", "CompanyAnswer", "CompanyDelete",
-           "EmployeeBase"]
+           "EmployeeBase", "EmployeeMany"]
 
 
 ################################# New Owner #################################
@@ -116,6 +116,11 @@ class EmployeeBase(BaseModel):
     "Базовый модель сотрудника"
     name: str
 
+
+class EmployeeMany(BaseModel):
+    "Модель для множественного добавления сотрудников в бд"
+    
+    array: List[EmployeeBase]
 
 
 if __name__ == "__main__":
